@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 
 export const generateToken = (res, customer) => {
-  const secret = process.env.JWT_SECRET || "shopkart_jwt_secret_key_super_secure_2026";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET environment variable is not set");
   const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
 
   const token = jwt.sign(
