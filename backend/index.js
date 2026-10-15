@@ -11,6 +11,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import mongoose from "mongoose";
 import { connectDB } from "./config/db.js";
 import seedProducts from "./utils/seedProducts.js";
 
@@ -27,6 +28,9 @@ const PORT = process.env.PORT || 5001;
 // Connect to Database and seed products
 connectDB().then(() => {
   seedProducts();
+}).catch((err) => {
+  console.error("❌ Database connection failed on startup:", err.message);
+  process.exit(1);
 });
 
 // Middleware configuration
@@ -132,5 +136,30 @@ const handleGracefulShutdown = () => {
 
 process.on("SIGINT", handleGracefulShutdown);
 process.on("SIGTERM", handleGracefulShutdown);
+
+// ── Crash Guards ──────────────────────────────────────────────────────────────
+// Catches any sync throw that escapes all try/catch blocks
+process.on("uncaughtException", (err) => {
+  console.error("🔴 Uncaught Exception — server kept alive:", err.message);
+  console.error(err.stack);
+});
+
+// Catches any async/await rejection that was never .caught
+process.on("unhandledRejection", (reason) => {
+  console.error("🔴 Unhandled Promise Rejection — server kept alive:", reason);
+});
+
+// Auto-reconnect if MongoDB Atlas drops the connection mid-session
+mongoose.connection.on("disconnected", () => {
+  console.warn("⚠️  MongoDB disconnected. Attempting to reconnect...");
+  setTimeout(() => {
+    connectDB().catch((err) =>
+      console.error("❌ Reconnect attempt failed:", err.message)
+    );
+  }, 5000); // wait 5s before retry
+});
+mongoose.connection.on("reconnected", () => {
+  console.log("✅ MongoDB reconnected successfully.");
+});
 
 export default app;
